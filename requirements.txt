@@ -1,0 +1,14 @@
+numpy
+pandas
+scipy
+statsmodels
+scikit-learn
+scikit-optimize
+matplotlib
+tensorflow
+keras
+torch
+transformers
+yfinance
+ewtpy
+openpyxl

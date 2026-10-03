@@ -1,0 +1,15 @@
+{
+  "audit_source": "Current feature_reduction.py run against the merged datasets supplied in Code_1.zip",
+  "training_cutoff": "2022-12-31",
+  "threshold_abs_r": 0.95,
+  "rows_per_ticker": 3774,
+  "modelling_columns_excluding_date_index": {
+    "AAPL": 49,
+    "JNJ": 52,
+    "JPM": 54,
+    "NKE": 51,
+    "XOM": 58,
+    "BA": 54
+  },
+  "AAPL_sentiment_present": true
+}

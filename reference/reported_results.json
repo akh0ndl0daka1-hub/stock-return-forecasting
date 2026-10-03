@@ -1,0 +1,142 @@
+{
+  "source": "Reported aggregate results, Chapter 6, October 2026",
+  "horizon_summary": {
+    "LSTM": {
+      "1": {
+        "mae": 0.01136,
+        "coverage_deviation": -0.006,
+        "pinaw": 0.292,
+        "ais": 0.05548
+      },
+      "5": {
+        "mae": 0.01092,
+        "coverage_deviation": 0.003,
+        "pinaw": 0.295,
+        "ais": 0.05573
+      },
+      "20": {
+        "mae": 0.01126,
+        "coverage_deviation": 0.012,
+        "pinaw": 0.309,
+        "ais": 0.05621
+      }
+    },
+    "KAN": {
+      "1": {
+        "mae": 0.01146,
+        "coverage_deviation": -0.046,
+        "pinaw": 0.291,
+        "ais": 0.05805
+      },
+      "5": {
+        "mae": 0.01202,
+        "coverage_deviation": -0.016,
+        "pinaw": 0.319,
+        "ais": 0.06002
+      },
+      "20": {
+        "mae": 0.01119,
+        "coverage_deviation": 0.049,
+        "pinaw": 0.343,
+        "ais": 0.05625
+      }
+    },
+    "TFT": {
+      "1": {
+        "mae": 0.01233,
+        "coverage_deviation": -0.112,
+        "pinaw": 0.271,
+        "ais": 0.06504
+      },
+      "5": {
+        "mae": 0.01282,
+        "coverage_deviation": -0.091,
+        "pinaw": 0.298,
+        "ais": 0.06917
+      },
+      "20": {
+        "mae": 0.01274,
+        "coverage_deviation": -0.056,
+        "pinaw": 0.332,
+        "ais": 0.07737
+      }
+    }
+  },
+  "dm_vs_zero_counts": {
+    "LSTM": {
+      "model_lower_raw": 8,
+      "model_significantly_lower": 0,
+      "benchmark_significantly_lower": 27,
+      "no_significant_difference": 45
+    },
+    "KAN": {
+      "model_lower_raw": 6,
+      "model_significantly_lower": 0,
+      "benchmark_significantly_lower": 34,
+      "no_significant_difference": 38
+    },
+    "TFT": {
+      "model_lower_raw": 2,
+      "model_significantly_lower": 0,
+      "benchmark_significantly_lower": 38,
+      "no_significant_difference": 34
+    }
+  },
+  "kupiec_rejections": {
+    "LSTM": 12,
+    "KAN": 22,
+    "TFT": 25
+  },
+  "aapl_sentiment": {
+    "mae": {
+      "mean_difference": -0.000137,
+      "improved_pairs": 11,
+      "p": 0.246,
+      "p_holm": 0.462
+    },
+    "ais": {
+      "mean_difference": -0.001242,
+      "improved_pairs": 12,
+      "p": 0.154,
+      "p_holm": 0.462
+    },
+    "abs_coverage_error": {
+      "mean_difference": -0.0152,
+      "improved_pairs": 12,
+      "p": 0.229,
+      "p_holm": 0.462
+    }
+  },
+  "temporal": {
+    "spearman_mae": 0.65,
+    "median_relative_change": 0.087,
+    "p90_relative_change": 0.317,
+    "same_lowest_mae": 17,
+    "same_lowest_ais": 23
+  },
+  "winner_totals": {
+    "MAE": {
+      "LSTM": 20,
+      "KAN": 11,
+      "TFT": 5
+    },
+    "AIS": {
+      "LSTM": 26,
+      "KAN": 9,
+      "TFT": 1
+    }
+  },
+  "attribution_percent": {
+    "Technical indicators": 36.6,
+    "Macroeconomic and cross-asset indicators": 27.9,
+    "Valuation ratios": 13.7,
+    "Company price and volume": 7.6,
+    "EWT components": 6.6,
+    "Recent target adjusted log return": 1.2
+  },
+  "runtime_hours_overall": {
+    "KAN": 0.421,
+    "LSTM": 5.053,
+    "TFT": 5.757
+  }
+}

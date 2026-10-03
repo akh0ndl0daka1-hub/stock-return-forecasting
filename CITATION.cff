@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the accompanying MSc thesis."
+title: "Code for Integrating AI-driven Textual and Time Series Analysis to Enhance Precision in Stock Price Prediction"
+type: software
+authors:
+  - family-names: "Ndlodaka"
+    given-names: "Akho"
+year: 2026
