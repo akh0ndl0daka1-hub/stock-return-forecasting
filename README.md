@@ -20,6 +20,16 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## Quick verification
+
+The repository includes an examiner-facing unit-test suite built from small synthetic examples. It checks temporal ordering, training-only scaling, feature reduction, forward filling, causal EWT construction, adjusted log returns, quantile and interval calculations, statistical procedures, experiment-grid construction, saved-output schemas, feature attribution, and model output contracts. Run:
+
+```bash
+pytest -q
+```
+
+The tests do not download market data or FinBERT weights. TensorFlow-specific model and gradient smoke tests run when TensorFlow is installed and are skipped otherwise. See `TESTING.md` for the full test map.
+
 The exact package-version snapshot from the original long-running experiments was not preserved. `requirements.txt` therefore lists the required packages without artificial version pins. For a new replication, record the resolved environment after installation, for example:
 
 ```bash

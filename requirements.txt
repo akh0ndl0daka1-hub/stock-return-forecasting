@@ -12,3 +12,4 @@ transformers
 yfinance
 ewtpy
 openpyxl
+pytest

@@ -23,6 +23,35 @@ ALPHA = 0.20
 NOMINAL_COVERAGE = 0.80
 
 
+def dm_hac_bandwidth(horizon: int) -> int:
+    """Bartlett HAC bandwidth used for an H-step forecast comparison."""
+    return max(int(horizon) - 1, 0)
+
+
+def symmetric_relative_change(first: np.ndarray, second: np.ndarray) -> np.ndarray:
+    """Absolute change relative to the mean of two positive comparison values."""
+    a = np.asarray(first, dtype=float)
+    b = np.asarray(second, dtype=float)
+    denom = (a + b) / 2.0
+    return np.divide(np.abs(b - a), denom, out=np.zeros_like(denom, dtype=float), where=denom != 0)
+
+
+def bootstrap_mean_interval(values: Iterable[float], *, n_boot: int = 10000,
+                            seed: int = 42, confidence: float = 0.95) -> tuple[float, float]:
+    """Percentile bootstrap interval for a paired mean difference."""
+    x = np.asarray(list(values), dtype=float)
+    if x.size == 0:
+        raise ValueError("values must not be empty")
+    if n_boot <= 0:
+        raise ValueError("n_boot must be positive")
+    if not (0.0 < confidence < 1.0):
+        raise ValueError("confidence must lie in (0, 1)")
+    rng = np.random.default_rng(seed)
+    draws = rng.choice(x, size=(int(n_boot), x.size), replace=True).mean(axis=1)
+    tail = (1.0 - confidence) / 2.0
+    return (float(np.quantile(draws, tail)), float(np.quantile(draws, 1.0 - tail)))
+
+
 def _pred_cols(df: pd.DataFrame) -> tuple[str, str, str]:
     return ("Pred_LogReturn_Q0.10", "Pred_LogReturn_Q0.50", "Pred_LogReturn_Q0.90")
 
@@ -149,7 +178,7 @@ def dm_test(loss_a: np.ndarray, loss_b: np.ndarray, horizon: int) -> tuple[float
     mean_d = float(np.mean(d))
     centered = d - mean_d
     gamma0 = float(np.dot(centered, centered) / n)
-    bandwidth = max(int(horizon) - 1, 0)
+    bandwidth = dm_hac_bandwidth(horizon)
     lrv = gamma0
     for lag in range(1, min(bandwidth, n - 1) + 1):
         gamma = float(np.dot(centered[lag:], centered[:-lag]) / n)
@@ -276,28 +305,31 @@ def kupiec_results(pred: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def aapl_sentiment_comparison(repo_root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
-    full = discover_predictions(repo_root, "results")
-    no_sent = discover_predictions(repo_root, "results_no_sentiment")
-    full = full[full.Ticker == "AAPL"]
-    no_sent = no_sent[no_sent.Ticker == "AAPL"]
-    mf = configuration_period_metrics(full)
-    mn = configuration_period_metrics(no_sent)
+def pair_aapl_metrics(sentiment_metrics: pd.DataFrame, numerical_metrics: pd.DataFrame) -> pd.DataFrame:
+    """Match period-averaged AAPL results by architecture, lookback, and horizon."""
     avg_keys = ["Architecture", "Ticker", "Lookback", "Horizon"]
-    aggf = mf.assign(abs_coverage_error=(mf.picp - NOMINAL_COVERAGE).abs()).groupby(avg_keys, as_index=False).agg(
-        mae=("mae", "mean"), ais=("ais", "mean"), abs_coverage_error=("abs_coverage_error", "mean"))
-    aggn = mn.assign(abs_coverage_error=(mn.picp - NOMINAL_COVERAGE).abs()).groupby(avg_keys, as_index=False).agg(
-        mae=("mae", "mean"), ais=("ais", "mean"), abs_coverage_error=("abs_coverage_error", "mean"))
-    paired = aggf.merge(aggn, on=avg_keys, suffixes=("_sentiment", "_numerical"))
-    rng = np.random.default_rng(42)
+    mf = sentiment_metrics.copy()
+    mn = numerical_metrics.copy()
+    mf["abs_coverage_error"] = (mf["picp"] - NOMINAL_COVERAGE).abs()
+    mn["abs_coverage_error"] = (mn["picp"] - NOMINAL_COVERAGE).abs()
+    aggf = mf.groupby(avg_keys, as_index=False).agg(
+        mae=("mae", "mean"), ais=("ais", "mean"),
+        abs_coverage_error=("abs_coverage_error", "mean"))
+    aggn = mn.groupby(avg_keys, as_index=False).agg(
+        mae=("mae", "mean"), ais=("ais", "mean"),
+        abs_coverage_error=("abs_coverage_error", "mean"))
+    return aggf.merge(aggn, on=avg_keys, suffixes=("_sentiment", "_numerical"), validate="one_to_one")
+
+
+def summarise_aapl_pairs(paired: pd.DataFrame) -> pd.DataFrame:
+    """Wilcoxon, Holm and bootstrap summaries for the paired AAPL comparison."""
     rows = []
     for metric in ["mae", "ais", "abs_coverage_error"]:
-        diff = paired[f"{metric}_sentiment"] - paired[f"{metric}_numerical"]
-        stat, p = wilcoxon(diff.to_numpy(float), alternative="two-sided", zero_method="wilcox")
-        boot = np.empty(10000, dtype=float)
-        values = diff.to_numpy(float)
-        for i in range(10000):
-            boot[i] = rng.choice(values, size=len(values), replace=True).mean()
+        values = (paired[f"{metric}_sentiment"] - paired[f"{metric}_numerical"]).to_numpy(float)
+        if len(values) == 0:
+            raise ValueError("No matched AAPL configurations were supplied")
+        stat, p = wilcoxon(values, alternative="two-sided", zero_method="wilcox")
+        ci_low, ci_high = bootstrap_mean_interval(values, n_boot=10000, seed=42)
         rows.append({
             "outcome": metric,
             "mean_difference": float(values.mean()),
@@ -305,12 +337,23 @@ def aapl_sentiment_comparison(repo_root: Path) -> tuple[pd.DataFrame, pd.DataFra
             "n_pairs": len(values),
             "wilcoxon_stat": float(stat),
             "p": float(p),
-            "bootstrap_2.5": float(np.percentile(boot, 2.5)),
-            "bootstrap_97.5": float(np.percentile(boot, 97.5)),
+            "bootstrap_2.5": ci_low,
+            "bootstrap_97.5": ci_high,
         })
     summary = pd.DataFrame(rows)
     summary["p_holm"] = holm_adjust(summary.p)
-    return paired, summary
+    return summary
+
+
+def aapl_sentiment_comparison(repo_root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+    full = discover_predictions(repo_root, "results")
+    no_sent = discover_predictions(repo_root, "results_no_sentiment")
+    full = full[full.Ticker == "AAPL"]
+    no_sent = no_sent[no_sent.Ticker == "AAPL"]
+    mf = configuration_period_metrics(full)
+    mn = configuration_period_metrics(no_sent)
+    paired = pair_aapl_metrics(mf, mn)
+    return paired, summarise_aapl_pairs(paired)
 
 
 def temporal_and_winner_summaries(metrics: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
@@ -321,11 +364,11 @@ def temporal_and_winner_summaries(metrics: pd.DataFrame) -> tuple[dict, pd.DataF
     if len(years) == 2:
         y1, y2 = years
         rho, p = spearmanr(wide[("mae", y1)], wide[("mae", y2)])
-        rel = (wide[("mae", y2)] - wide[("mae", y1)]).abs() / ((wide[("mae", y2)] + wide[("mae", y1)]) / 2)
+        rel = symmetric_relative_change(wide[("mae", y1)].to_numpy(float), wide[("mae", y2)].to_numpy(float))
         temporal = {
             "years": [y1, y2], "spearman_mae": float(rho), "spearman_p": float(p),
-            "median_symmetric_relative_mae_change": float(rel.median()),
-            "p90_symmetric_relative_mae_change": float(rel.quantile(0.9)),
+            "median_symmetric_relative_mae_change": float(np.median(rel)),
+            "p90_symmetric_relative_mae_change": float(np.quantile(rel, 0.9)),
         }
         for metric in ["mae", "zero_mae", "picp", "pinaw", "ais"]:
             temporal[f"mean_{metric}_{y1}"] = float(wide[(metric, y1)].mean())
